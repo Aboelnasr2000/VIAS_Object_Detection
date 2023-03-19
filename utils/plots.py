@@ -74,7 +74,7 @@ def plot_Label(X, Y, img, color, label, line_thickness=3):
     t_size = cv2.getTextSize(label, 0, fontScale=2 / 3, thickness=int(tf))[0]
     # c2 = c1[0] + t_size[0], c1[1] - t_size[1] - 3
     # cv2.rectangle(img, c1, c2, color, -1, cv2.LINE_AA)  # filled
-    cv2.putText(img, label, (X, Y), 0, 8 / 2, color, thickness=int(tf), lineType=cv2.LINE_AA)
+    cv2.putText(img, label, (X, Y), 0, 2 / 2, color, thickness=int(tf), lineType=cv2.LINE_AA)
 
 
 def plot_one_box_PIL(box, img, color=None, label=None, line_thickness=None):

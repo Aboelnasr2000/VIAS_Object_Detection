@@ -30,6 +30,7 @@ Green = (0, 255, 0)
 Red = (0, 0, 255)
 Black = (0, 0, 0)
 White = (255, 255, 255)
+WarningFlag = 0
 
 
 def draw_boxes(img, bbox, identities=None, categories=None, names=None, save_with_object_id=False, path=None,
@@ -48,7 +49,7 @@ def draw_boxes(img, bbox, identities=None, categories=None, names=None, save_wit
         cv2.rectangle(img, (x1, y1), (x2, y2), (255, 0, 20), 8)
         cv2.rectangle(img, (x1, y1 - 20), (x1 + w, y1), (255, 144, 30), 4)
         cv2.putText(img, label, (x1, y1 - 5), cv2.FONT_HERSHEY_SIMPLEX,
-                    4 / 2, [255, 255, 255], 8)
+                    2 / 2, [255, 255, 255], 4)
         # Scale 0.6 , Size
         # cv2.circle(img, data, 6, color,-1)   #centroid of box
         txt_str = ""
@@ -181,6 +182,7 @@ def detect(save_img=False):
             save_path = str(save_dir / p.name)  # img.jpg
             txt_path = str(save_dir / 'labels' / p.stem) + ('' if dataset.mode == 'image' else f'_{frame}')  # img.txt
             gn = torch.tensor(im0.shape)[[1, 0, 1, 0]]  # normalization gain whwh
+
             if len(det):
                 # Rescale boxes from img_size to im0 size
                 det[:, :4] = scale_coords(img.shape[2:], det[:, :4], im0.shape).round()
@@ -195,6 +197,7 @@ def detect(save_img=False):
                 dets_to_sort = np.empty((0, 6))
 
                 # NOTE: We send in detected object class too
+                Mindistance = 10
                 for x1, y1, x2, y2, conf, detclass in det.cpu().detach().numpy():
                     ## Limit Area Of Search And Gather Distances in A Variable
 
@@ -207,16 +210,14 @@ def detect(save_img=False):
                         person_width = 0.7
                         xyxy_width = x2 - x1
                         xyxy_height = y2 - y1
-                        distance = (xyxy_width * xyxy_height) / (person_width * person_height) / 100
-                        print(distance)
-                        if distance < 150:
-                            WarningFlag = 0
-                            continue
-                        else:
-                            WarningFlag = 1
-
-                        dets_to_sort = np.vstack((dets_to_sort,
-                                                  np.array([x1, y1, x2, y2, conf, detclass])))
+                        # print("Pixels Of Person :  ", xyxy_height)
+                        Cdistance = 7.58 + (-0.01620275743566665 * xyxy_height)
+                        # print("Distance : ", Cdistance)
+                        Mindistance = min(Mindistance, Cdistance)
+                        # print("Distance : " , distance)
+                        if Cdistance < 3:
+                            dets_to_sort = np.vstack((dets_to_sort,
+                                                      np.array([x1, y1, x2, y2, conf, detclass])))
 
                 # Run SORT
                 tracked_dets = sort_tracker.update(dets_to_sort)
@@ -270,9 +271,10 @@ def detect(save_img=False):
 
             # Print time (inference + NMS)
             # Worn About Closest Object
-            if WarningFlag == 1:
-                plot_Label(50, 110, im0, Black, "Warning Object Close ", line_thickness=15)
-                plot_Label(50, 110, im0, Red, "Warning Object Close ", line_thickness=14)
+
+            if Mindistance < 3:
+                plot_Label(50, 110, im0, Black, "Warning Object Close ", line_thickness=6)
+                plot_Label(50, 110, im0, Red, "Warning Object Close ", line_thickness=5)
                 winsound.Beep(1000, 100)
             print(f'{s}Done. ({(1E3 * (t2 - t1)):.1f}ms) Inference, ({(1E3 * (t3 - t2)):.1f}ms) NMS')
 
