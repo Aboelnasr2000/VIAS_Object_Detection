@@ -8,6 +8,8 @@ from numpy import random
 from random import randint
 import torch.backends.cudnn as cudnn
 import winsound
+from playsound import playsound
+import pygame
 
 from models.experimental import attempt_load
 from utils.datasets import LoadStreams, LoadImages
@@ -31,6 +33,8 @@ Red = (0, 0, 255)
 Black = (0, 0, 0)
 White = (255, 255, 255)
 WarningFlag = 0
+LastWarningTime = 0
+LastWarningIdentity = 0
 
 
 def draw_boxes(img, bbox, identities=None, categories=None, names=None, save_with_object_id=False, path=None,
@@ -74,6 +78,7 @@ def detect(save_img=False):
     webcam = source.isnumeric() or source.endswith('.txt') or source.lower().startswith(
         ('rtsp://', 'rtmp://', 'http://', 'https://'))
 
+    LastWarningIdentity = 0
     # .... Initialize SORT ....
     # .........................
     sort_max_age = 5
@@ -213,9 +218,13 @@ def detect(save_img=False):
                         # print("Pixels Of Person :  ", xyxy_height)
                         Cdistance = 7.58 + (-0.01620275743566665 * xyxy_height)
                         # print("Distance : ", Cdistance)
-                        Mindistance = min(Mindistance, Cdistance)
+                        if Cdistance < Mindistance:
+                            xyxyz = [x1, y1, x2, y2]
+                            Mindistance = min(Mindistance, Cdistance)
+
                         # print("Distance : " , distance)
-                        if Cdistance < 3:
+                        if Cdistance < 6:
+                            xyxyz = [x1, y1, x2, y2]
                             dets_to_sort = np.vstack((dets_to_sort,
                                                       np.array([x1, y1, x2, y2, conf, detclass])))
 
@@ -227,6 +236,7 @@ def detect(save_img=False):
 
                 # loop over tracks
                 for track in tracks:
+                    # print(track.id)
                     # color = compute_color_for_labels(id)
                     # draw colored tracks
                     if colored_trk:
@@ -264,18 +274,38 @@ def detect(save_img=False):
                 # draw boxes for visualization
                 if len(tracked_dets) > 0:
                     bbox_xyxy = tracked_dets[:, :4]
+
                     identities = tracked_dets[:, 8]
                     categories = tracked_dets[:, 4]
                     draw_boxes(im0, bbox_xyxy, identities, categories, names, save_with_object_id, txt_path)
+                    for i in range(len(tracked_dets)):
+                        if int(bbox_xyxy[i][0]) not in range(int(xyxyz[0]) - 5, int(xyxyz[0]) + 5):
+                            pass
+                        else:
+                            WarningIdentity = identities[i]
                 # ........................................................
 
             # Print time (inference + NMS)
             # Worn About Closest Object
-
             if Mindistance < 3:
                 plot_Label(50, 110, im0, Black, "Warning Object Close ", line_thickness=6)
                 plot_Label(50, 110, im0, Red, "Warning Object Close ", line_thickness=5)
-                winsound.Beep(1000, 100)
+                print("I am here")
+                if WarningIdentity == LastWarningIdentity and time_synchronized() - LastWarningTime < 3:
+                    print("Time Hasn't Passed Yet : ", time_synchronized() - LastWarningTime)
+                else:
+                    pygame.init()
+                    pygame.mixer.music.load("Alert.mp3")
+                    pygame.mixer.music.play()
+
+                    while pygame.mixer.music.get_busy():
+                        # Check if playback has finished
+                        pass
+
+                    pygame.quit()
+                    LastWarningIdentity = WarningIdentity
+                    LastWa  rningTime = time_synchronized()
+
             print(f'{s}Done. ({(1E3 * (t2 - t1)):.1f}ms) Inference, ({(1E3 * (t3 - t2)):.1f}ms) NMS')
 
             # Stream results
